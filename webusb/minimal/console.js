@@ -1,50 +1,65 @@
 (function() {
   'use strict';
 
-  hterm.defaultStorage = new lib.Storage.Local();
-
   var device;
 
   let textEncoder = new TextEncoder();
-  let t = new hterm.Terminal();
-  t.onTerminalReady = () => {
-    console.log('Terminal ready.');
-    let io = t.io.push();
-    io.onVTKeystroke = str => {
-      if (device !== undefined) {
-        device.transferOut(2, textEncoder.encode(str)).catch(error => {
-          console.log('Send error: ' + error);
-        });
-      }
-    };
+  let t = new Terminal();
+  let writing = false;
+  let buffer = '';
 
-    io.sendString = str => {
-      if (device !== undefined) {
-        device.transferOut(2, textEncoder.encode(str)).catch(error => {
-          console.log('Send error: ' + error);
-        });
+  function flush() {
+    writing = true;
+    let buffer_ = buffer;
+    buffer = '';
+    device.transferOut(2, textEncoder.encode(buffer_)).then(result => {
+      writing = false;
+      if( buffer.length != 0 ) {
+        flush();
       }
-    };
-  };
+    }).catch(error => {
+      console.log('送信エラー: ' + error);
+      writing = false;
+      if( buffer.length != 0 ) {
+        flush();
+      }
+    });
+  }
+
+  t.open( document.getElementById('terminal') );
+  t.on('key', function (key, ev) {
+    if (device !== undefined) {
+      if( !writing ) {
+        buffer += key;
+        flush();
+      }
+      else {
+        buffer += key;
+      }
+    }
+  });
+
+  t.on('paste', function (data, ev) {
+    if (device !== undefined) {
+      device.transferOut(2, textEncoder.encode(data)).catch(error => {
+        console.log('送信エラー: ' + error);
+      });
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', event => {
     let connectButton = document.querySelector('#connect');
-
-    t.decorate(document.querySelector('#terminal'));
-    t.setWidth(80);
-    t.setHeight(24);
-    t.installKeyboard();
-
     function connect() {
-      console.log('Connecting to ' + device.productName + '...');
+      console.log('デバイス ' + device.productName + ' に接続中...');
       let readLoop = () => {
         if( device ) {
-          device.transferIn(1, 64).then(result => {
+          device.transferIn(1, 1024).then(result => {
             let textDecoder = new TextDecoder();
-            t.io.print(textDecoder.decode(result.data));
+            t.write(textDecoder.decode(result.data));
             readLoop();
           }, error => {
             console.log( error );
+            readLoop();
           });
 	}
       };
@@ -65,7 +80,7 @@
           'index': 0x00
         });
       }).then(() => {
-        console.log('Connected.');
+        console.log('接続中');
         connectButton.textContent = '切断';
 	connectButton.disabled = false;
         readLoop();
@@ -73,7 +88,7 @@
         port = undefined;
         connectButton.textContent = '接続';
 	connectButton.disabled = false;
-        console.log('Connection error: ' + error);
+        console.log('接続エラー: ' + error);
       });
     };
     connectButton.addEventListener('click', function() {
@@ -97,32 +112,30 @@
         ];
         return navigator.usb.requestDevice({ 'filters': filters }).then(device_ => {
 	  device = device_;
-          connectButton.textContent = '接続中...';
+          connectButton.textContent = '接続中';
           return connect();
         }).catch(error => {
-          console.log('Connection error: ' + error);
-          connectButton.textContent = '接続';
-	  connectButton.disabled = false;
+          console.log('接続エラー: ' + error);
         });
       }
     });
 
     if( navigator.usb === undefined ) {
-      t.io.println('This browser does not support WebUSB.');
+      t.writeln('このブラウザはWebUSBをサポートしていません');
       connectButton.disabled = true; 
     }
     else {
       navigator.usb.getDevices().then(devices => {
         if(devices.length == 0) {
-          console.log('No devices found.');
+          console.log('デバイスが見つかりません');
         } else {
-          connectButton.textContent = 'Connecting...';
+          connectButton.textContent = '接続中';
           connectButton.disabled = true;
           device = devices[ 0 ];
           return connect();
         }
       }).catch(error => {
-        console.log('Connection error: ' + error);
+        console.log('接続エラー: ' + error);
       });
     }
   });
