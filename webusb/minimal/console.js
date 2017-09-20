@@ -107,8 +107,10 @@
 	  device = undefined;
 	});
       } else {
+        let vendor_id = document.getElementById('vendor').value;
+        let product_id = document.getElementById('product').value;
         const filters = [
-          { 'vendorId': 0x1234, 'productId': 0x5678 },
+          { 'vendorId': vendor_id, 'productId': product_id },
         ];
         return navigator.usb.requestDevice({ 'filters': filters }).then(device_ => {
 	  device = device_;
@@ -116,6 +118,8 @@
           return connect();
         }).catch(error => {
           console.log('接続エラー: ' + error);
+          connectButton.textContent = '接続';
+	  connectButton.disabled = false;
         });
       }
     });

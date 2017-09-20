@@ -253,14 +253,25 @@
 	        offset += lfn[ rindex ].byteLength;
 	      }
 	      filename = utf16_decoder.decode( cat );
-	      filename = filename.substr( 0, filename.indexOf( '\0' ) );
+	      let filename_end = filename.indexOf( '\0' );
+	      if( filename_end != -1 ) {
+	        filename = filename.substr( 0, filename_end );
+	      }
 	    }
 	    else {
 	      filename = sjis_decoder.decode( sfn );
-	      filename = filename.substr( 0, filename.indexOf( '\0' ) );
+	      let filename_end = filename.indexOf( ' ' );
+	      if( filename_end != -1 ) {
+	        filename = filename.substr( 0, filename_end );
+	      }
 	      let fileext = sjis_decoder.decode( ext );
-	      fileext = fileext.substr( 0, fileext.indexOf( '\0' ) );
-	      filename = filename + '.' + fileext;
+	      let fileext_end = fileext.indexOf( ' ' );
+	      if( fileext_end != -1 ) {
+	        fileext = fileext.substr( 0, fileext_end );
+	      }
+	      if( fileext.length != 0 ) {
+	        filename = filename + '.' + fileext;
+	      }
 	    }
 	    let read_only = ( attribute & 0x01 ) != 0;
 	    let system = ( attribute & 0x02 ) != 0;
@@ -311,7 +322,7 @@
       }
       let load_fat32cluster = ( fsinfo, chunks, index, data ) => {
 	let lba = fsinfo.clusters_lba + ( chunks[ index ].at - 2 ) * fsinfo.cluster_size;
-	return read( lba, chunks[ index ].length ).then( result => {
+	return read( lba, chunks[ index ].length * fsinfo.cluster_size ).then( result => {
 	  data.push( result.data );
 	  if( index + 1 < chunks.length ) {
 	    return load_fat32cluster( fsinfo, chunks, index + 1, data );
@@ -339,6 +350,69 @@
 	  }
 	});
       };
+      let dump_directory = ( dir ) => {
+        let serialized = '';
+	for( let i = 0; i != dir.length; i++ ) {
+	  let attr = '';
+	  if( dir[ i ].is_dir ) {
+	    attr += 'd';
+	  }
+	  else {
+	    attr += '-';
+	  }
+	  if( dir[ i ].read_only ) {
+	    attr += 'r';
+	  }
+	  else {
+	    attr += '-';
+	  }
+	  if( dir[ i ].hidden ) {
+	    attr += 'h';
+	  }
+	  else {
+	    attr += '-';
+	  }
+	  if( dir[ i ].system ) {
+	    attr += 's';
+	  }
+	  else {
+	    attr += '-';
+	  }
+	  serialized += 'ファイル名:\t' + dir[ i ].name + '\r\n';
+	  serialized += '  属性:\t\t' + attr + '\r\n';
+	  serialized += '  作成時刻:\t' + dir[ i ].created_date + '\r\n';
+	  serialized += '  最終更新時刻:\t' + dir[ i ].write_date + '\r\n';
+	  serialized += '  先頭クラスタ:\t' + dir[ i ].head + '\r\n';
+	  serialized += '  サイズ:\t' + dir[ i ].size + '\r\n';
+	}
+	return serialized;
+      }
+      let find_fat32file_entry = ( dir, name ) => {
+        return dir.find( ( x, i, a ) => { return x.name == name; } );
+      }
+      let find_fat32file_internal = ( fat32, dir, path ) => {
+	if( path.length == 0 ) {
+	  return undefined;
+	}
+	let entry = find_fat32file_entry( dir, path[ 0 ] );
+	if( entry === undefined ) {
+	  return undefined;
+	}
+	if( path.length == 1 ) {
+	  return load_fat32file( fat32, entry.head, entry.size );
+	}
+	else {
+	  return load_fat32file( fat32, entry.head, entry.size ).then( raw => {
+	    let next_dir = parse_fat32directory( raw );
+	    path.shift();
+	    return find_fat32file_internal( fat32, next_dir, path );
+	  });
+	}
+      };
+      let find_fat32file = ( fat32, path ) => {
+        let splitted = path.split( '/' );
+	return find_fat32file_internal( fat32, fat32.rootdir, splitted );
+      }
       let load_fat32 = partition => {
         return read( partition.at, 1 ).then( result => {
 	  let cluster_size = result.data.getUint8( 13 );
@@ -404,41 +478,34 @@
 	  }
 	  return load_fat32( partition_table[ 0 ] );
 	}).then( fat32 => {
-	  let rootdir = fat32.rootdir;
-	  for( let i = 0; i != rootdir.length; i++ ) {
-            let serialized = '';
-	    let attr = '';
-	    if( rootdir[ i ].is_dir ) {
-	      attr += 'd';
-	    }
-	    else {
-	      attr += '-';
-	    }
-	    if( rootdir[ i ].read_only ) {
-	      attr += 'r';
-	    }
-	    else {
-	      attr += '-';
-	    }
-	    if( rootdir[ i ].hidden ) {
-	      attr += 'h';
-	    }
-	    else {
-	      attr += '-';
-	    }
-	    if( rootdir[ i ].system ) {
-	      attr += 's';
-	    }
-	    else {
-	      attr += '-';
-	    }
-	    serialized += 'ファイル名:\t' + rootdir[ i ].name + '\r\n';
-	    serialized += '  属性:\t\t' + attr + '\r\n';
-	    serialized += '  作成時刻:\t' + rootdir[ i ].created_date + '\r\n';
-	    serialized += '  最終更新時刻:\t' + rootdir[ i ].write_date + '\r\n';
-	    serialized += '  先頭クラスタ:\t' + rootdir[ i ].head + '\r\n';
-	    serialized += '  サイズ:\t' + rootdir[ i ].size + '\r\n';
-	    t.write( serialized );
+	  let serialized = dump_directory( fat32.rootdir );
+	  t.write( serialized );
+	  return fat32;
+	}).then( fat32 => {
+	  let filename = document.getElementById( 'file' ).value;
+	  let file = find_fat32file( fat32, filename );
+	  if( file !== undefined ) {
+	    return file.then( raw_file => {
+	      if( raw_file === undefined ) {
+	        t.write( filename + 'は見つからなかった\r\n' );
+	        return;
+	      }
+	      let ext_ = filename.split( '.' );
+	      let ext = ext_.pop();
+	      let url_creator = window.URL || window.webkitURL;
+	      if( ext == 'png' ) {
+                let blob = new Blob([raw_file.buffer],{type:"image/png"});
+	        let image_url = url_creator.createObjectURL( blob );
+                let img = document.getElementById( "image" );
+	        img.src = image_url;
+	      }
+	      else if( ext == 'jpg' || ext == 'jpeg' ) {
+                let blob = new Blob([raw_file.buffer],{type:"image/jpeg"});
+	        let image_url = url_creator.createObjectURL( blob );
+                let img = document.getElementById( "image" );
+	        img.src = image_url;
+	      }
+	    });
 	  }
 	});
       }, error => {
@@ -464,8 +531,10 @@
 	  device = undefined;
 	});
       } else {
+        let vendor_id = document.getElementById('vendor').value;
+        let product_id = document.getElementById('product').value;
         const filters = [
-          { 'vendorId': 0x0930, 'productId': 0x1408 },
+          { 'vendorId': vendor_id, 'productId': product_id },
         ];
         return navigator.usb.requestDevice({ 'filters': filters }).then(device_ => {
 	  device = device_;
@@ -473,6 +542,8 @@
           return connect();
         }).catch(error => {
           console.log('接続エラー: ' + error);
+          connectButton.textContent = '接続';
+	  connectButton.disabled = false;
         });
       }
     });
