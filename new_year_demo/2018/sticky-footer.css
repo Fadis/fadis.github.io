@@ -1,0 +1,32 @@
+body {
+    background-color: black;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+#wrap {
+  min-height: 100%;
+  height: auto;
+  margin: 0 auto -60px;
+  padding: 0 0 60px;
+}
+
+#footer {
+  height: 60px;
+}
+
+span.score {
+  font-weight: bolder;
+  font-size: large;
+  font-color: red;
+}
+
