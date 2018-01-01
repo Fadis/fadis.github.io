@@ -12,13 +12,13 @@ $(document).ready(function() {
     video_process.render();
   }, 50 );
   if( window.DeviceMotionEvent !== undefined ) {
-    bootstrap_alert.warning('¤³¤ÎWeb¥Ú¡¼¥¸¤òÀµ¤·¤¯Æ°ºî¤µ¤»¤ë¤Ë¤ÏWebGL¤ËÂĞ±ş¤·¤¿¥Ö¥é¥¦¥¶¤¬É¬Í×¤Ç¤¹');
+    bootstrap_alert.warning('ã“ã®Webãƒšãƒ¼ã‚¸ã‚’æ­£ã—ãå‹•ä½œã•ã›ã‚‹ã«ã¯WebGLã«å¯¾å¿œã—ãŸãƒ–ãƒ©ã‚¦ã‚¶ãŒå¿…è¦ã§ã™');
     let first_time = true
     addEventListener('devicemotion', function( e ) {
       if( e.accelerationIncludingGravity.x !== null ) {
         if( first_time ) {
           first_time = false;
-          bootstrap_alert.success('²ÃÂ®ÅÙ¥»¥ó¥µ¡¼¤ò¸¡½Ğ¤·¤Ş¤·¤¿¡£Ã¼Ëö¤ò·¹¤±¤Æ¤ß¤Ş¤·¤ç¤¦¡£');
+          bootstrap_alert.success('åŠ é€Ÿåº¦ã‚»ãƒ³ã‚µãƒ¼ã‚’æ¤œå‡ºã—ã¾ã—ãŸã€‚ç«¯æœ«ã‚’å‚¾ã‘ã¦ã¿ã¾ã—ã‚‡ã†ã€‚');
         }
         video_process.set_gravity( [
           e.accelerationIncludingGravity.x,
@@ -29,14 +29,14 @@ $(document).ready(function() {
       else {
         if( first_time ) {
           first_time = false;
-          bootstrap_alert.success('¥¦¥£¥ó¥É¥¦¤òÆ°¤«¤·¤Æ¤ß¤Ş¤·¤ç¤¦¡£');
+          bootstrap_alert.success('ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’å‹•ã‹ã—ã¦ã¿ã¾ã—ã‚‡ã†ã€‚');
         }
       }
     } );
   }
   else {
     first_time = false;
-    bootstrap_alert.success('¥¦¥£¥ó¥É¥¦¤òÆ°¤«¤·¤Æ¤ß¤Ş¤·¤ç¤¦¡£');
+    bootstrap_alert.success('ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’å‹•ã‹ã—ã¦ã¿ã¾ã—ã‚‡ã†ã€‚');
   }
   $(window).on('resize', function(){
     var canvas = $("#keys").get( 0 );

@@ -230,8 +230,6 @@ class Renderer {
     gl.uniform3fv( eye_index, eye_pos );
     gl.uniform3fv( light_index, light_pos );
     gl.uniform1i( sampler_index, 0 );
-    gl.enable( gl.CULL_FACE );
-    gl.cullFace( gl.FRONT );
     this.cloth = new Cloth( 20, 20 );
     let that = this;
     this.image = new Image();
