@@ -244,7 +244,7 @@ class Renderer {
       gl.activeTexture( gl.TEXTURE0 );
       console.log( 'テクスチャ読み込み完了' );
     };
-    this.image.src = './tex.jpg';
+    this.image.src = './tex.png';
   }
   resize() {
     let gl = this.gl;
